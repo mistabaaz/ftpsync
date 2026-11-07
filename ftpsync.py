@@ -12,11 +12,11 @@ class ftp_sync:
         self.local_dir = local_dir
         self.remote_dir = remote_dir.strip("/")
 
+        self.ftp = FTP()
+
         if not os.path.exists(self.local_dir):
             print(f"{self.local_dir} directory dosen't exists")
-            exit()
-
-        self.ftp = FTP()
+            raise SystemExit 
 
         self.ftp.connect(self.host, self.port)
         self.ftp.login(user, passwd)
@@ -54,8 +54,11 @@ class ftp_sync:
     def sync(self):
         self.ftp.cwd(f"{self.remote_dir}")
     
-        for file,facts in self.ftp.mlsd(facts=["size", "modify"]):
+        for file,facts in self.ftp.mlsd(facts=["type", "size", "modify"]):
             
+            if (facts["type"]=="dir"):
+                print(f"directory '{file}' skipped, currently files only\n")
+                continue
             rfsize = int(facts["size"])
             rdt = self.rfile_datetime(file, facts)
 
