@@ -1,20 +1,36 @@
 from ftplib import FTP
-import os
 from datetime import datetime, timezone
+import os
+import argparse
 
 class ftp_sync:
 
-    host = "127.0.0.1"
-    port = 2121
-    local_dir = "sync"
-    remote_dir = "sync"
+    def __init__(self, host, port, local_dir, remote_dir, user="", passwd=""):
+            
+        self.host = host
+        self.port = port
+        self.local_dir = local_dir
+        self.remote_dir = remote_dir.strip("/")
 
-    ftp = FTP()
+        if not os.path.exists(self.local_dir):
+            print(f"{self.local_dir} directory dosen't exists")
+            exit()
 
-    def init(self):
+        self.ftp = FTP()
+
         self.ftp.connect(self.host, self.port)
-        self.ftp.login('', '')
+        self.ftp.login(user, passwd)
         print(self.ftp.getwelcome(), "\n")
+
+        dlst = self.remote_dir.split("/")
+        if len(dlst) > 1:
+            path = "/".join(dlst[0:-1])
+        else:
+            path = "."
+
+        if dlst[-1] not in self.ftp.nlst(path):
+            print(f"{self.remote_dir} directory dosen't exists on remote device")
+            raise SystemExit
     
     def pull(self, file, bSize):
         print(f"Downloading file {file} ({bSize} B)")
@@ -98,10 +114,15 @@ class ftp_sync:
         self.ftp.close()
 
 def main():
-    client = ftp_sync()
-    client.remote_dir = "redmi9i/sync_t"
+    parser = argparse.ArgumentParser(prog="ftpsync", description="sync files from specific directory of FTP server", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument("host", help="IP address of ftp server")
+    parser.add_argument("-p", "--port", type=int, default=2121, help="PORT of ftp server")
+    parser.add_argument("-s", "--src", default="sync", help="REMOTE Directory which have to sync from server")
+    parser.add_argument("-d", "--dir", default="sync", help="LOCAL Directory (this device)")
+    args = parser.parse_args()
 
-    client.init()
+    client = ftp_sync(args.host, args.port, args.src, args.dir)
+
     client.sync()
     client.close()
 
