@@ -34,14 +34,14 @@ class ftp_sync:
     
     def pull(self, file, bSize):
         print(f"Downloading file {file} ({bSize} B)")
-        f = open(f"{self.local_dir}/{file}", "wb")
+        f = open(f"./{file}", "wb")
         res = self.ftp.retrbinary(f"RETR {file}", f.write, bSize) 
         print(res, "\n")
         f.close()
 
     def push(self, file, bSize):
         print(f"Uploading file {file} ({bSize} B)")
-        f = open(f"{self.local_dir}/{file}", "rb")
+        f = open(f"./{file}", "rb")
         res = self.ftp.storbinary(f"STOR {file}", f, bSize)
         print(res)
         f.close()
@@ -49,27 +49,33 @@ class ftp_sync:
     def MFMT_local(self, file, mtime):
         # change modify time of local files
         now = datetime.now(tz=timezone.utc).timestamp()
-        os.utime(f"{self.local_dir}/{file}", times=(now, mtime))
+        os.utime(f"./{file}", times=(now, mtime))
 
-    def sync(self):
-        self.ftp.cwd(f"{self.remote_dir}")
+    def sync(self, rdir, ldir):
+        # changing lcoal & remote current directory
+        self.ftp.cwd(f"{rdir}")
+        os.chdir(ldir)
     
         for file,facts in self.ftp.mlsd(facts=["type", "size", "modify"]):
             
             if (facts["type"]=="dir"):
-                print(f"directory '{file}' skipped, currently files only\n")
+                print(f"\nfetching subdirectory '{self.ftp.pwd()}/{file}'\n")
+                if not os.path.exists(file):
+                    os.mkdir(file)
+                self.sync(file, file);
                 continue
+
             rfsize = int(facts["size"])
             rdt = self.rfile_datetime(file, facts)
 
             # pull newly created remote files
-            if not os.path.isfile(f"{self.local_dir}/{file}"):
+            if not os.path.isfile(f"./{file}"):
                 self.pull(file, rfsize)
                 self.MFMT_local(file, rdt[1]) # modify time
                 continue
 
 
-            lfsize = os.stat(f"{self.local_dir}/{file}").st_size
+            lfsize = os.stat(f"./{file}").st_size
             ldt = self.lfile_datetime(file)
 
             # check if remote file is new
@@ -83,9 +89,16 @@ class ftp_sync:
                 print(res, "\n")
         
         # push newly created local files
-        for file in os.listdir(self.local_dir):
+        for file in os.listdir():
 
-            lfsize = os.stat(f"{self.local_dir}/{file}").st_size
+            if ( os.path.isdir(file) ):
+                if file not in self.ftp.nlst():
+                    print(f"\nsyncing subdirectory '{os.getcwd()}/{file}'\n")
+                    self.ftp.mkd(file)
+                    self.sync(file, file);
+                continue
+
+            lfsize = os.stat(f"./{file}").st_size
             ldt = self.lfile_datetime(file)
 
             if file not in self.ftp.nlst():
@@ -93,6 +106,10 @@ class ftp_sync:
                 res = self.ftp.sendcmd(f"MFMT {ldt[0]} {file}")
                 print(res, "\n")
 
+        # directory complete go back
+        print(f"Directory '{rdir}' synced successfully\n")
+        self.ftp.cwd("./..")
+        os.chdir("./..")
    
     def rfile_datetime(self, file, facts):
         # remote file modify time
@@ -103,7 +120,7 @@ class ftp_sync:
 
     def lfile_datetime(self, file):
         # local file modify time
-        local_finfo = os.stat(f"{self.local_dir}/{file}")
+        local_finfo = os.stat(f"./{file}")
         local_mtime_ = local_finfo.st_mtime
         local_mdate = datetime.fromtimestamp(local_mtime_, timezone.utc).strftime("%Y%m%d%H%M%S")
         local_mtime = datetime.strptime(local_mdate, "%Y%m%d%H%M%S").replace(tzinfo=timezone.utc).timestamp()
@@ -126,7 +143,7 @@ def main():
 
     client = ftp_sync(args.host, args.port, args.src, args.dir)
 
-    client.sync()
+    client.sync(args.dir, args.src)
     client.close()
 
 if __name__ == "__main__":
