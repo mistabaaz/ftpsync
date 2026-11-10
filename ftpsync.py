@@ -15,7 +15,7 @@ class ftp_sync:
         self.ftp = FTP()
 
         if not os.path.exists(self.local_dir):
-            print(f"{self.local_dir} directory dosen't exists")
+            print(f"{self.local_dir} directory dosen't exists locally")
             raise SystemExit 
 
         self.ftp.connect(self.host, self.port)
@@ -51,18 +51,21 @@ class ftp_sync:
         now = datetime.now(tz=timezone.utc).timestamp()
         os.utime(f"./{file}", times=(now, mtime))
 
-    def sync(self, rdir, ldir):
+    def sync(self, rdir, ldir, recursive):
         # changing lcoal & remote current directory
         self.ftp.cwd(f"{rdir}")
         os.chdir(ldir)
     
         for file,facts in self.ftp.mlsd(facts=["type", "size", "modify"]):
             
-            if (facts["type"]=="dir"):
+            if (facts["type"]=="dir" and recursive):
                 print(f"\nfetching subdirectory '{self.ftp.pwd()}/{file}'\n")
                 if not os.path.exists(file):
                     os.mkdir(file)
-                self.sync(file, file);
+                self.sync(file, file, recursive);
+                continue
+            elif (facts["type"]=="dir"):
+                print(f"skipped directory '{file}' (use -r for sync)\n")
                 continue
 
             rfsize = int(facts["size"])
@@ -91,11 +94,15 @@ class ftp_sync:
         # push newly created local files
         for file in os.listdir():
 
-            if ( os.path.isdir(file) ):
+            if ( os.path.isdir(file) and recursive ):
                 if file not in self.ftp.nlst():
                     print(f"\nsyncing subdirectory '{os.getcwd()}/{file}'\n")
                     self.ftp.mkd(file)
-                    self.sync(file, file);
+                    self.sync(file, file, recursive);
+                continue
+            elif ( os.path.isdir(file) ):
+                if file not in self.ftp.nlst():
+                    print(f"skipped directory '{file}' (use -r for sync)\n")
                 continue
 
             lfsize = os.stat(f"./{file}").st_size
@@ -139,11 +146,12 @@ def main():
     parser.add_argument("-p", "--port", type=int, default=2121, help="PORT of ftp server")
     parser.add_argument("-s", "--src", default="sync", help="REMOTE Directory which have to sync from server")
     parser.add_argument("-d", "--dir", default="sync", help="LOCAL Directory (this device)")
+    parser.add_argument("-r", "--recursive",action="store_true", help="for syncing folder inside folder")
     args = parser.parse_args()
 
     client = ftp_sync(args.host, args.port, args.src, args.dir)
 
-    client.sync(args.dir, args.src)
+    client.sync(args.dir, args.src, args.recursive)
     client.close()
 
 if __name__ == "__main__":
