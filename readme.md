@@ -5,7 +5,7 @@
 - make sure "sync" folder is on both sides (server and client)
 
 ```text
-usage: ftpsync [-h] [-p PORT] [-s SRC] [-d DIR] host
+usage: ftpsync [-h] [-p PORT] [-s SRC] [-d DIR] [-r] host
 
 sync files from specific directory of FTP server
 
@@ -19,6 +19,8 @@ options:
                    server (default: sync)
   -d, --dir DIR    LOCAL Directory (this device) (default:
                    sync)
+  -r, --recursive  for syncing folder inside folder 
+                   (default: False)
 ```
 
 ### Credits

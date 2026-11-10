@@ -147,7 +147,7 @@ class ftp_sync:
 
         total_sec = datetime.now(tz=timezone.utc).timestamp() - self.start_time
         speed = (self.total_size / 1048576) / total_sec
-        print (f"\nTook {total_sec//60:.0f}m {total_sec%60:.0f}s!", "Average Speed : %.2f MB/sec" % speed)
+        print(f"\nTook {total_sec//60:.0f}m {total_sec%60:.0f}s!", "Average Speed : %.2f MB/sec" % speed)
 
 def main():
     parser = argparse.ArgumentParser(prog="ftpsync", description="sync files from specific directory of FTP server", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
