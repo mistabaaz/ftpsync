@@ -12,6 +12,9 @@ class ftp_sync:
         self.local_dir = local_dir
         self.remote_dir = remote_dir.strip("/")
 
+        self.total_size = 0
+        self.start_time = datetime.now(tz=timezone.utc).timestamp()
+
         self.ftp = FTP()
 
         if not os.path.exists(self.local_dir):
@@ -33,14 +36,16 @@ class ftp_sync:
             raise SystemExit
     
     def pull(self, file, bSize):
-        print(f"Downloading file {file} ({bSize} B)")
+        self.total_size += bSize
+        print(f"Downloading file {file} {(bSize/1048576):.2f} MB ({bSize} B)")
         f = open(f"./{file}", "wb")
         res = self.ftp.retrbinary(f"RETR {file}", f.write, bSize) 
         print(res, "\n")
         f.close()
 
     def push(self, file, bSize):
-        print(f"Uploading file {file} ({bSize} B)")
+        self.total_size += bSize
+        print(f"Uploading file {file} %.2f {(bSize/1048576):.2f} MB ({bSize} B)")
         f = open(f"./{file}", "rb")
         res = self.ftp.storbinary(f"STOR {file}", f, bSize)
         print(res)
@@ -139,6 +144,10 @@ class ftp_sync:
 
     def __del__(self):
         self.ftp.close()
+
+        total_sec = datetime.now(tz=timezone.utc).timestamp() - self.start_time
+        speed = (self.total_size / 1048576) / total_sec
+        print (f"\nTook {total_sec//60:.0f}m {total_sec%60:.0f}s!", "Average Speed : %.2f MB/sec" % speed)
 
 def main():
     parser = argparse.ArgumentParser(prog="ftpsync", description="sync files from specific directory of FTP server", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
