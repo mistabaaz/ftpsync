@@ -158,9 +158,9 @@ def main():
     parser.add_argument("-r", "--recursive",action="store_true", help="for syncing folder inside folder")
     args = parser.parse_args()
 
-    client = ftp_sync(args.host, args.port, args.src, args.dir)
+    client = ftp_sync(args.host, args.port, args.dir, args.src)
 
-    client.sync(args.dir, args.src, args.recursive)
+    client.sync(args.src, args.dir, args.recursive)
     client.close()
 
 if __name__ == "__main__":
