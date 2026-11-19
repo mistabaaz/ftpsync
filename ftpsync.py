@@ -14,6 +14,7 @@ class ftp_sync:
 
         self.total_size = 0
         self.start_time = datetime.now(tz=timezone.utc).timestamp()
+        self.current_file = None
 
         self.ftp = FTP()
 
@@ -35,20 +36,42 @@ class ftp_sync:
             print(f"{self.remote_dir} directory dosen't exists on remote device")
             raise SystemExit
     
+    def chunk_handle(self, bytes):
+        print(f"chunk {self.chunk_no}/{self.total_chunks}\r", end="")
+        if self.current_file is not None:
+            self.current_file.write(bytes)
+        self.chunk_no += 1
+
     def pull(self, file, bSize):
         self.total_size += bSize
-        print(f"Downloading file {file} {(bSize/1048576):.2f} MB ({bSize} B)")
+        one_mb = 1048576
+        print(f"Downloading file {file} {(bSize/one_mb):.2f} MB ({bSize} B)")
+
         f = open(f"./{file}", "wb")
-        res = self.ftp.retrbinary(f"RETR {file}", f.write, bSize) 
-        print(res, "\n")
+        self.current_file = f
+        self.chunk_no = 1
+        self.total_chunks = -1
+        
+        chunk_size = one_mb
+        res = self.ftp.retrbinary(f"RETR {file}", self.chunk_handle, chunk_size)
+        print("\n", res, "\n")
+
         f.close()
+        self.current_file = None
 
     def push(self, file, bSize):
         self.total_size += bSize
-        print(f"Uploading file {file} %.2f {(bSize/1048576):.2f} MB ({bSize} B)")
+        one_mb = 1048576
+        print(f"Uploading file {file} {(bSize/one_mb):.2f} MB ({bSize} B)")
+
         f = open(f"./{file}", "rb")
-        res = self.ftp.storbinary(f"STOR {file}", f, bSize)
-        print(res)
+        self.chunk_no = 1
+        self.total_chunks = (bSize // one_mb) + 1
+
+        chunk_size = one_mb
+        res = self.ftp.storbinary(f"STOR {file}", f, chunk_size, self.chunk_handle)
+        print("\n", res)
+
         f.close()
 
     def MFMT_local(self, file, mtime):
