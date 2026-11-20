@@ -37,9 +37,19 @@ class ftp_sync:
             raise SystemExit
     
     def chunk_handle(self, bytes):
-        print(f"chunk {self.chunk_no}/{self.total_chunks}\r", end="")
         if self.current_file is not None:
             self.current_file.write(bytes)
+
+        # progress bar
+        self.bytes_processed += len(bytes)
+        percent = (self.bytes_processed / self.total_bytes) * 100
+        bar_width = 40
+        char_processed = '#'
+        char_unprocessed = ' '
+        char_done = int( (percent / 100 ) * bar_width )
+
+        print(f"[{char_processed*char_done}{char_unprocessed*(bar_width-char_done)}] {percent:.2f}% \r", end='')
+        
         self.chunk_no += 1
 
     def pull(self, file, bSize):
@@ -49,6 +59,9 @@ class ftp_sync:
 
         f = open(f"./{file}", "wb")
         self.current_file = f
+
+        self.bytes_processed = 0
+        self.total_bytes = bSize
         self.chunk_no = 1
         self.total_chunks = -1
         
@@ -65,6 +78,9 @@ class ftp_sync:
         print(f"Uploading file {file} {(bSize/one_mb):.2f} MB ({bSize} B)")
 
         f = open(f"./{file}", "rb")
+
+        self.bytes_processed = 0
+        self.total_bytes = bSize
         self.chunk_no = 1
         self.total_chunks = (bSize // one_mb) + 1
 
